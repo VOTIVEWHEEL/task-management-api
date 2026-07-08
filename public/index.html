@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Task Manager</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --border: #262b36;
+    --text: #e8eaed;
+    --muted: #8b92a3;
+    --accent: #4f8cff;
+    --danger: #ef5350;
+    --low: #6b7280;
+    --medium: #d97706;
+    --high: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .container { max-width: 640px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #0d0f14;
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    width: 100%;
+  }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button.small { width: auto; padding: 6px 10px; font-size: 0.8rem; }
+  button.danger { background: var(--danger); }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .link-btn {
+    background: none; border: none; color: var(--accent); width: auto;
+    padding: 0; font-size: 0.85rem; text-decoration: underline; cursor: pointer;
+  }
+  .error { color: var(--danger); font-size: 0.85rem; margin: -4px 0 12px; }
+  .task {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .task-title { font-weight: 600; margin-bottom: 4px; }
+  .task-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    margin-right: 6px;
+  }
+  .badge.low { background: rgba(107,114,128,0.2); color: var(--low); }
+  .badge.medium { background: rgba(217,119,6,0.2); color: var(--medium); }
+  .badge.high { background: rgba(220,38,38,0.2); color: var(--high); }
+  .task-actions { display: flex; gap: 8px; align-items: center; }
+  .filters { display: flex; gap: 8px; margin-bottom: 16px; }
+  .filters select { margin-bottom: 0; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .hidden { display: none; }
+  .empty-state { color: var(--muted); text-align: center; padding: 24px 0; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div id="auth-view">
+    <h1>Task Manager</h1>
+    <p class="subtitle">Sign in to manage your tasks.</p>
+
+    <div class="card">
+      <div id="login-form">
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" autocomplete="username" />
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" />
+        <div id="login-error" class="error hidden"></div>
+        <button onclick="handleLogin()">Log In</button>
+        <p style="text-align:center; margin-top:12px; font-size:0.85rem; color:var(--muted);">
+          No account? <button class="link-btn" onclick="toggleForm('register')">Register</button>
+        </p>
+      </div>
+
+      <div id="register-form" class="hidden">
+        <label for="register-email">Email</label>
+        <input id="register-email" type="email" autocomplete="username" />
+        <label for="register-password">Password (min 8 characters)</label>
+        <input id="register-password" type="password" autocomplete="new-password" />
+        <div id="register-error" class="error hidden"></div>
+        <button onclick="handleRegister()">Create Account</button>
+        <p style="text-align:center; margin-top:12px; font-size:0.85rem; color:var(--muted);">
+          Already have an account? <button class="link-btn" onclick="toggleForm('login')">Log In</button>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="dashboard-view" class="hidden">
+    <div class="topbar">
+      <div>
+        <h1>My Tasks</h1>
+        <p class="subtitle" id="user-email"></p>
+      </div>
+      <button class="secondary" style="width:auto;" onclick="handleLogout()">Log Out</button>
+    </div>
+
+    <div class="card">
+      <label for="new-title">New Task</label>
+      <input id="new-title" placeholder="Title" />
+      <textarea id="new-description" placeholder="Description (optional)"></textarea>
+      <div class="row">
+        <div>
+          <label for="new-due-date">Due date</label>
+          <input id="new-due-date" type="date" />
+        </div>
+        <div>
+          <label for="new-priority">Priority</label>
+          <select id="new-priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div id="create-error" class="error hidden"></div>
+      <button onclick="handleCreateTask()">Add Task</button>
+    </div>
+
+    <div class="filters">
+      <select id="filter-status" onchange="loadTasks()">
+        <option value="">All statuses</option>
+        <option value="todo">To do</option>
+        <option value="inprogress">In progress</option>
+        <option value="done">Done</option>
+      </select>
+      <select id="filter-priority" onchange="loadTasks()">
+        <option value="">All priorities</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>
+
+    <div id="task-list"></div>
+  </div>
+
+</div>
+
+<script>
+  const API = '/api';
+  let state = { token: localStorage.getItem('token'), user: JSON.parse(localStorage.getItem('user') || 'null') };
+
+  function toggleForm(which) {
+    document.getElementById('login-form').classList.toggle('hidden', which !== 'login');
+    document.getElementById('register-form').classList.toggle('hidden', which !== 'register');
+  }
+
+  function showError(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message;
+    el.classList.remove('hidden');
+  }
+  function clearError(id) {
+    document.getElementById(id).classList.add('hidden');
+  }
+
+  async function api(path, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+
+    const res = await fetch(`${API}${path}`, { ...options, headers });
+    const isJson = res.headers.get('content-type')?.includes('application/json');
+    const body = isJson ? await res.json() : null;
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        clearSession();
+        render();
+      }
+      throw new Error(body?.error || `Request failed (${res.status})`);
+    }
+    return body;
+  }
+
+  function saveSession(token, user) {
+    state.token = token;
+    state.user = user;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
+  function clearSession() {
+    state.token = null;
+    state.user = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }
+
+  async function handleLogin() {
+    clearError('login-error');
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    try {
+      const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      saveSession(data.token, data.user);
+      render();
+    } catch (err) {
+      showError('login-error', err.message);
+    }
+  }
+
+  async function handleRegister() {
+    clearError('register-error');
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value;
+    try {
+      await api('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) });
+      const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      saveSession(data.token, data.user);
+      render();
+    } catch (err) {
+      showError('register-error', err.message);
+    }
+  }
+
+  async function handleLogout() {
+    try { await api('/auth/logout', { method: 'POST' }); } catch (_) { /* ignore */ }
+    clearSession();
+    render();
+  }
+
+  async function handleCreateTask() {
+    clearError('create-error');
+    const title = document.getElementById('new-title').value.trim();
+    const description = document.getElementById('new-description').value.trim();
+    const due_date = document.getElementById('new-due-date').value || null;
+    const priority = document.getElementById('new-priority').value;
+
+    if (!title) { showError('create-error', 'Title is required'); return; }
+
+    try {
+      await api('/tasks', { method: 'POST', body: JSON.stringify({ title, description: description || null, due_date, priority }) });
+      document.getElementById('new-title').value = '';
+      document.getElementById('new-description').value = '';
+      document.getElementById('new-due-date').value = '';
+      loadTasks();
+    } catch (err) {
+      showError('create-error', err.message);
+    }
+  }
+
+  async function updateStatus(id, status) {
+    await api(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    loadTasks();
+  }
+
+  async function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    await api(`/tasks/${id}`, { method: 'DELETE' });
+    loadTasks();
+  }
+
+  function taskCard(task) {
+    const due = task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date';
+    return `
+      <div class="task">
+        <div class="task-title">${escapeHtml(task.title)}</div>
+        ${task.description ? `<div style="font-size:0.85rem; color:var(--muted); margin-bottom:8px;">${escapeHtml(task.description)}</div>` : ''}
+        <div class="task-meta">
+          <span class="badge ${task.priority}">${task.priority}</span>
+          ${due}
+        </div>
+        <div class="task-actions">
+          <select onchange="updateStatus('${task.id}', this.value)">
+            <option value="todo" ${task.status === 'todo' ? 'selected' : ''}>To do</option>
+            <option value="inprogress" ${task.status === 'inprogress' ? 'selected' : ''}>In progress</option>
+            <option value="done" ${task.status === 'done' ? 'selected' : ''}>Done</option>
+          </select>
+          <button class="danger small" onclick="deleteTask('${task.id}')">Delete</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  async function loadTasks() {
+    const status = document.getElementById('filter-status').value;
+    const priority = document.getElementById('filter-priority').value;
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (priority) params.set('priority', priority);
+
+    try {
+      const data = await api(`/tasks${params.toString() ? '?' + params.toString() : ''}`);
+      const list = document.getElementById('task-list');
+      list.innerHTML = data.tasks.length
+        ? data.tasks.map(taskCard).join('')
+        : '<div class="empty-state">No tasks yet. Add one above.</div>';
+    } catch (err) {
+      document.getElementById('task-list').innerHTML = `<div class="error">${err.message}</div>`;
+    }
+  }
+
+  function render() {
+    const loggedIn = !!state.token;
+    document.getElementById('auth-view').classList.toggle('hidden', loggedIn);
+    document.getElementById('dashboard-view').classList.toggle('hidden', !loggedIn);
+    if (loggedIn) {
+      document.getElementById('user-email').textContent = state.user?.email || '';
+      loadTasks();
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>
